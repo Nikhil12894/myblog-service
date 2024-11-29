@@ -1,0 +1,128 @@
+/*
+ * Blog Application with Gateway and Microservices
+ * OAuth2 with Keycloak for authentication
+ * Gateway forwards entity APIs to respective microservices
+ */
+
+application {
+  config {
+    baseName bloggateway
+    applicationType gateway
+    packageName com.mydomain.blog.gateway
+    serviceDiscoveryType no
+    authenticationType oauth2
+    prodDatabaseType no
+    cacheProvider no
+    buildTool gradle
+    clientFramework react
+  }
+  entities Blog, Post, Comment, Tag, User
+}
+
+application {
+  config {
+    baseName blogservice
+    applicationType microservice
+    packageName com.mydomain.blog.service
+    serviceDiscoveryType no
+    authenticationType oauth2
+    prodDatabaseType postgresql
+    cacheProvider hazelcast
+    buildTool gradle
+    serverPort 8081
+  }
+  entities Blog, Post, Comment, Tag
+}
+
+application {
+  config {
+    baseName userservice
+    applicationType microservice
+    packageName com.mydomain.blog.user
+    serviceDiscoveryType no
+    authenticationType oauth2
+    prodDatabaseType postgresql
+    cacheProvider hazelcast
+    buildTool gradle
+    serverPort 8082
+  }
+  entities User
+}
+
+/**
+ * Blog Entities
+ */
+
+entity Blog {
+    name String required
+    description String
+    userId Long required
+}
+
+entity Post {
+    title String required
+    content TextBlob required
+    publishedDate Instant
+    blogId Long required
+}
+
+entity Comment {
+    content TextBlob required
+    createdDate Instant required
+    postId Long required
+}
+
+entity Tag {
+    name String required
+    description String
+}
+
+/**
+ * User Entities
+ */
+
+entity User {
+    username String required
+    email String required pattern(/^[^@\s]+@[^@\s]+\.[^@\s]+$/)
+    firstName String
+    lastName String
+}
+
+/**
+ * Relationships
+ */
+
+relationship OneToMany {
+    Blog{post} to Post{blog(name) required},
+    Post{comment} to Comment{post(title) required}
+}
+
+relationship ManyToMany {
+    Blog{tag} to Tag{blog},
+    Post{tag} to Tag{post}
+}
+
+/**
+ * Pagination and Services
+ */
+
+paginate Blog, Post, Comment, Tag, User with pagination
+service Blog, Post, Comment, Tag, User with serviceClass
+microservice Blog, Post, Comment, Tag with blogservice
+microservice User with userservice
+
+/**
+ * Deployment
+ */
+
+deployment {
+  deploymentType kubernetes
+  appsFolders [bloggateway, blogservice, userservice]
+  dockerRepositoryName "nikhil12894"
+  serviceDiscoveryType no
+  istio true
+  kubernetesServiceType Ingress
+  kubernetesNamespace blog
+  ingressDomain "blog.mydomain.com"
+}
+
